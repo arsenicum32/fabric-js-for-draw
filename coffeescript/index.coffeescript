@@ -1,0 +1,391 @@
+STEP = 0
+data = 
+  draw: false
+  BrushSize: 1.0
+  displayOutline: false
+  color: '#000'
+  Static: true
+gui = new (dat.GUI)(autoPlace: false)
+customContainer = document.getElementById('my-gui-container')
+
+onKeyDownHandler = (e) ->
+  #alert e.keyCode
+  switch e.keyCode
+    when 8
+      # delete
+      activeObject = canvas.getActiveObject() || canvas.getActiveGroup()
+      canvas.remove activeObject
+      activeObject.forEachObject (a)-> 
+        canvas.remove a
+        canvas.renderAll()
+      return
+    when 32
+      ###STEP++
+      $('#alerts span').text STEP
+      $('#alerts span').toggleClass "highlight"
+      SomeMagic(STEP)
+      canvas.renderAll()###
+      return
+    when 27
+      ###STEP=0
+      $('#alerts span').text STEP
+      SomeMagic(STEP)
+      canvas.renderAll()###
+      return
+    when 37
+      ###STEP-- if STEP>0
+      $('#alerts span').text STEP
+      $('#alerts span').toggleClass "highlight"
+      SomeMagic(STEP)
+      canvas.renderAll()###
+      return
+    when 39
+      ###STEP+=10
+      $('#alerts span').text STEP
+      $('#alerts span').toggleClass "highlight"
+      SomeMagic(STEP)
+      canvas.renderAll() ###
+      return
+  return
+
+customContainer.appendChild gui.domElement
+Static = gui.add(data, 'Static', true).listen()
+f1 = gui.addFolder('свободное рисование')
+a = f1.add(data, 'draw').listen()
+size = f1.add(data, 'BrushSize', 0, 50).listen()
+color = f1.addColor(data, 'color').listen()
+f1.open()
+#f1.close()
+#f1.onChange(function(){alert()});
+#dat.GUI.toggleHide();
+###stats = new Stats
+stats.setMode 1
+# 0: fps, 1: ms
+stats.domElement.style.position = 'absolute'
+stats.domElement.style.left = '0px'
+stats.domElement.style.top = '0px'
+document.body.appendChild stats.domElement
+###
+update = ->
+  stats.begin()
+  stats.end()
+  requestAnimationFrame update
+  return
+
+requestAnimationFrame update
+#alert(this.data.a);
+$('#designer').attr 'width', $(window).width()
+$('#designer').attr 'height', $(window).height()
+canvas = new (fabric.Canvas)('designer')
+
+fabric.Object.prototype.originX = "center";
+fabric.Object.prototype.originY = "center";
+
+
+body = new (fabric.Rect)(
+  width: 120
+  height: 120
+  fill: '#f55'
+  top: 0
+  left: 0
+  rx:15
+  ry:0)
+body.top = 0
+body.left = 400
+body.set
+  borderColor: 'red'
+  cornerColor: 'green'
+  cornerSize: 6
+
+anim = ->
+  body.animate 'left', 500,
+    onChange: canvas.renderAll.bind(canvas)
+    duration: 1000
+    easing: fabric.util.ease.easeOutElastic
+  return
+
+###canvas.on('mouse:down', function(options) {
+  console.log(options.e.clientX, options.e.clientY);
+  if(options.target){
+  options.target.animate('angle', 500, {
+    onChange: canvas.renderAll.bind(canvas),
+    duration: 1000,
+    easing: fabric.util.ease.easeOutElastic
+      //easeInCubic, easeOutCubic, easeInElastic, easeOutElastic, easeInBounce, easeOutExpo 
+  });}
+});
+###
+
+###body.on("selected", function(e) {
+  //console.log("component selected!", e);
+});
+###
+arrayPsImageAdder = []
+
+addIm = (path,step)->
+  fabric.Image.fromURL path, (oImg) ->
+  # уменьшаем картинку и переварачиваем перед добавлением
+    oImg.scale(0.5)#.setFlipX true
+    oImg.top = step[0]
+    oImg.left = step[1]
+    canvas.add oImg
+  #oImg.sendToBack()
+    return
+addImAfterTwenty = (path,step)->
+  fabric.Image.fromURL path, (oImg) ->
+    oImg.scale(arrayPsImageAdder[step].s) if arrayPsImageAdder[step].s!=null
+    oImg.top = arrayPsImageAdder[step].y
+    oImg.left = arrayPsImageAdder[step].x
+    canvas.add oImg
+    return
+###path = new (fabric.Path)('M 0 0 L 200 100 L 17 200 z')
+path.set
+  left: 120
+  top: 120
+canvas.add path###
+#canvas.interactive = true;
+#canvas.selection = false;
+#alert(canvas.item());
+#object.set({selectable:false})
+#animation unfinite
+
+###(function animate() {
+    canvas.item(0).animate('top', canvas.item(0).getTop() === 500 ? '100' : '500', { 
+      duration: 1000,
+      onChange: canvas.renderAll.bind(canvas),
+      onComplete: animate
+    });
+  }).call(this);
+###
+
+#
+#
+#      GUI actions
+#
+#
+canvas.isDrawingMode = true
+
+a.onChange (value) ->
+  canvas.isDrawingMode = value
+  return
+size.onChange (value) ->
+  canvas.freeDrawingBrush.width = value
+  return
+color.onChange (value) ->
+  canvas.freeDrawingBrush.color = value
+  return
+Static.onChange (value) ->
+  if !value then (canvas.isDrawingMode = value) else undefined
+  canvas.forEachObject (object) ->
+    object.set selectable: value
+    return
+  return
+
+
+
+circle = new (fabric.Circle)(
+  left: 100
+  top: 100
+  radius: 100
+  fill: 'darksalmon'
+  stroke: 0)
+circle2 = new (fabric.Circle)(
+  left: 300
+  top: 300
+  radius: 15
+  fill: 0
+  stroke: 1)
+
+ 
+#super matrix
+#    o o o o
+#    o o o o
+#    o o o o 
+#    o o o o
+# drawing
+
+matrixCX = []
+matrixCXover = []
+nowMath = [0..40]
+lendth = 6
+
+offsetX = canvas.getWidth()/2
+offsetY = canvas.getHeight()/2
+
+fullyMatrix = () -> 
+  for n in nowMath
+    matrixCX[n] = new (fabric.Circle)(
+      left: offsetX+30*(n+1) - 30*lendth*((n+1)//lendth)
+      top: offsetY-10+30*((n+1)//lendth)
+      radius: 10
+      fill: 0
+      stroke: 1)
+    matrixCXover[n] = new (fabric.Circle)(
+      left: offsetX+30*(n+1) - 30*lendth*((n+1)//lendth)
+      top: offsetY-10+30*((n+1)//lendth)
+      radius: 15
+      fill: 0
+      stroke: 1)
+  
+  
+###for i in nowMath
+  canvas.add matrixCX[i]
+  canvas.add matrixCXover[i]###
+
+#for i in nowMath
+# canvas.remove matrixCXover[i]
+#alert matrixCX 
+
+
+
+
+###$('body').on('mouseup',function(){
+  alert(circle.left);
+});
+###
+#alert canvas.absolutePan()
+text = new fabric.Text "создаём круг", (
+        fontSize: 20
+        fontFamily: 'Ubuntu Mono')
+text.left = 200
+text.top = 200
+
+SomeMagic = (step) ->
+  switch step
+    when 1
+      canvas.add circle
+      
+      canvas.add text
+    when 2
+      circle.center() 
+      text.set (text:'центруем')
+    when 3
+      circle.fill = 'peachpuff'
+      text.set (text:'поиграемся с цветами')
+    when 4
+      circle.fill = 'sandybrown'
+      text.set (text:'стандартый набор палитры web \n под цвет дерева')
+    when 5
+      circle.fill = 'tomato'
+    when 6
+      circle.fill = 'navajowhite'
+    when 7
+      circle.fill = 'bisque'
+      text.set (text:'НАШЛИ!!!')
+    when 8
+      circle.radius = 10
+      text.set (text:'уменьшаем чутка')
+    when 9
+      canvas.add circle2
+      circle2.center()
+      text.set (text:'добавляем второй круг \n с диаметром 1,5D первого')
+    when 10
+      circle.fill = 0
+      circle.stroke = 1
+      fullyMatrix()
+      text.set (text:'убираем заливку а-ля мы усердно чертим')
+    when 11
+      for i in [0..4]
+        canvas.add matrixCX[i]
+        canvas.add matrixCXover[i]
+      text.set (text:'копи-пастим... Разумеется криво')
+    when 12
+      for i in nowMath.splice(5,nowMath.length)
+        canvas.add matrixCX[i]
+        canvas.add matrixCXover[i]
+      canvas.add body
+      text.set (text:'о-да! ещё больше копи-паста')
+    when 13
+      body.top = offsetY+65
+      body.left = offsetX+75 - 30*lendth*(2//lendth)
+      body.sendToBack()
+      text.set (text:'только что добавленный скруглённый квадрат\nрасполагаем по сеточке')
+    when 14
+      for i in [0..40]
+        matrixCX[i].fill = 'white'
+        matrixCX[i].stroke = 0
+        body.fill = 'peachpuff'
+        canvas.remove matrixCXover[i]
+      text.set (text:'О да детка! Логотип готов!')
+    when 15
+      addIm('http://placehold.it/300x300',15)
+      text.set (text:'делаем его динамическим')
+    when 16
+      addIm('http://placehold.it/300x300',16)
+      text.set (text:'ещё больше динамическим')
+    when 17
+      addIm('http://placehold.it/300x300',17)
+      text.set (text:'максимум динамики!')
+    when 18
+      addIm('http://placehold.it/300x300',18)
+      text.set (text:'стоит заметить, ')
+    when 19
+      addIm('http://placehold.it/300x300',19)
+      text.set (text:'что такой сеткой кругов можно обыграть\n очень много вещей')
+    when 20 
+       text.set (text:'люверсы на майке?')
+    when 21
+       arrayPsImageAdder[21]=(x:200,y:300,s:0.2)
+       addImAfterTwenty('http://placehold.it/300x300',21)
+       text.set (text:'да пожалуйста!')
+    when 22
+       arrayPsImageAdder[22]=(x:200,y:300,s:1)
+       addImAfterTwenty('http://placehold.it/300x300',22)
+       text.set (text:'+ какой-нибудь стульчик...')
+    when 23
+       text.set (text:'а сейчас, я расскажу вам, \n как организую маркетинговую коммуникацию')
+       canvas.bringToFront text
+    when 24
+       text.set (text:'есть маленький никому не известный бренд')
+    when 25
+       text.set (text:'его реклама такая же как и он сам...\nмалозначащая и незаметная')
+       arrayPsImageAdder[24] = (x:300,y:300,s:0.5)
+       addImAfterTwenty('http://placehold.it/300x300',24)
+       arrayPsImageAdder[23] = (x:100,y:300,s:0.5)
+       addImAfterTwenty('http://placehold.it/300x300',23)
+       arrayPsImageAdder[25] = (x:100,y:500,s:0.5)
+       addImAfterTwenty('http://placehold.it/300x300',25)
+    when 26
+       arrayPsImageAdder[26] = (x:300,y:300,s:2)
+       addImAfterTwenty('http://placehold.it/300x300',26)
+       text.set (text:'но потом бренд начинает расти\nначинает наглеть')
+       canvas.bringToFront text
+     when 27
+        text.set (text:'он выходит из тени, становится\n частью городских сплетен,\n непридуманных историй')
+     when 28
+        text.set (text:'на кухне становится жарко,\nпромо-акции,рефералки,\nпартизанский маркетинг\nафишы, мастер-классы и бла-бла-бла')
+     when 29
+        text.set (text:'а потом этот маленький,\n никому не известный бренд,\nпросто становится неотемлемой частью нашей жизни')
+     when 30
+        text.set (text:'simplelamp',fontSize: 100,fill:'hotpink')
+     else STEP=0
+     
+
+    
+      
+    
+    
+
+    
+      
+
+#alert(circle.left);
+###circle.setGradient 'fill',
+  x1: 0
+  y1: 0
+  x2: 0
+  y2: circle.height
+  colorStops:
+    0: '#000'
+    1: '#fff'###
+window.onkeydown = onKeyDownHandler
+
+#circle.center()
+
+
+###circle.filters.push(filter);###
+
+###circle.applyFilters(canvas.renderAll.bind(canvas));###
+
+# ---
+# generated by js2coffee 2.0.4
